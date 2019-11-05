@@ -286,7 +286,10 @@ class Player():
             else:
                 response_index = random.randint(0, len(data)-1)
         elif (question['question type'] == "activate " + self.saveChar['color'] + " power"):
-            response_index = random.randint(0, 1)
+            if (self.saveChar['color'] == "red"):
+                response_index = 1
+            else:
+                response_index = random.randint(0, 1)
         else:
             print("i don't know this question")
             response_index = random.randint(0, len(data)-1)

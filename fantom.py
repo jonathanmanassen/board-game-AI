@@ -6,6 +6,7 @@ import json
 import protocol
 from random import randrange
 import random
+import time
 
 host = "localhost"
 port = 12000
@@ -23,6 +24,7 @@ colors = before | permanents | after | two
 # ways between rooms
 passages = [{1, 4}, {0, 2}, {1, 3}, {2, 7}, {0, 5, 8},
             {4, 6}, {5, 7}, {3, 6, 9}, {4, 9}, {7, 8}]
+
 # ways for the pink character
 pink_passages = [{1, 4}, {0, 2, 5, 7}, {1, 3, 6}, {2, 7}, {0, 5, 8, 9}, {
     4, 6, 1, 8}, {5, 7, 2, 9}, {3, 6, 9, 1}, {4, 9, 5}, {7, 8, 4, 6}]
@@ -188,6 +190,9 @@ class Player():
     saveChar = None
     savePos = None
     data = None
+    power = False
+    saveValuePower = [None, None]
+    nbCalls = 0
 
     def __init__(self):
 
@@ -201,7 +206,84 @@ class Player():
     def reset(self):
         self.socket.close()
 
+    def powerLoopNb(self, charact):
+        if (charact['color'] == "pink"):
+            return 0
+        if charact['color'] == "red":
+            return 0
+
+        if charact['color'] == "black":
+            return 1
+
+        if charact['color'] == "white":
+            nb = 0
+            for moved_character in game.game_state['characters']:
+                if moved_character['position'] == charact['position'] and charact != moved_character:
+                    disp = {
+                        x for x in passages[charact['position']] if x not
+                        in game.game_state['blocked'] or moved_character['position'] not in game.game_state['blocked']}
+
+                    available_positions = list(disp)
+                    nb += len(available_positions)
+            return nb
+
+        if charact['color'] == "purple":
+            return 0
+
+        if charact['color'] == "brown":
+            return 0
+
+        if charact['color'] == "grey":
+            return 10
+
+        if charact['color'] == "blue":
+            return 11
+
+    def activate_power_after_move(self, charact, i):
+        if charact['color'] == "black":
+            for q in game.game_state['characters']:
+                if q['position'] in {x for x in passages[charact['position']] if x not in game.game_state['blocked'] or q['position'] not in game.game_state['blocked']}:
+                    q['position'] = charact['position']
+            return [None, None]
+
+        if charact['color'] == "white":
+            nb = 0
+            for moved_character in game.game_state['characters']:
+                if moved_character['position'] == charact['position'] and charact != moved_character:
+                    disp = {
+                        x for x in passages[charact['position']] if x not
+                        in game.game_state['blocked'] or moved_character['position'] not in game.game_state['blocked']}
+
+                    available_positions = list(disp)
+                    for position in available_positions:
+                        if (nb == i):
+                            moved_character['position'] = position
+                            return [moved_character, position]
+                        nb += 1
+
+        if charact['color'] == "grey":
+
+            available_rooms = [room for room in range(10)]
+            game.shadow = available_rooms[i]
+            return [i, None]
+
+        if charact['color'] == "blue":
+
+            nb = 0
+            available_rooms = [room for room in range(10)]
+            for r in range(0, 10):
+                selected_room = available_rooms[r]
+
+                for selected_exit in passages[r]:
+                    if (selected_exit < selected_room):
+                        continue
+                    if (nb == i):
+                        game.blocked = {selected_room, selected_exit}
+                        return[selected_room, selected_exit]
+                    nb += 1
+
     def alphabeta(self, data, depth, player, alpha, beta, maxDepth):
+        self.nbCalls += 1
         if (depth == 0):
             return self.score
         if (player):
@@ -216,25 +298,34 @@ class Player():
                             if charact['position'] not in game.game_state['blocked'] or x not in game.game_state['blocked']}
                     for position in list(disp):
                         game.change_character_position(charact, position)
-                        local = self.score
-                        self.score = game.heuristic()
-                        if (depth == maxDepth):
-                            beta = 1000000000
-
-                        nb = self.alphabeta(data, depth - 1, player, alpha, beta, maxDepth)
-                        if (value < nb):
-                            value = nb
-                        game.change_character_position(charact, save_pos)
-                        self.score = local
-                        if (alpha < value):
-                            alpha = value
+                        for i in range(0, self.powerLoopNb(charact) + 1):
+                            save_game_state = game.game_state.copy()
+                            if (i > 0):
+                                savePow = self.activate_power_after_move(charact, i - 1)
+                            local = self.score
+                            self.score = game.heuristic()
                             if (depth == maxDepth):
-                                self.saveChar = charact
-                                self.savePos = position
-                                print("saving pos " + str(position) + "for char " + charact['color'] + "\n")
-                                print("value " + str(value) + "\n")
-                        if (beta <= alpha and depth != maxDepth):
-                            return (value)
+                                beta = 1000000000
+
+                            nb = self.alphabeta(data, depth - 1, player, alpha, beta, maxDepth)
+                            if (value < nb):
+                                value = nb
+                            game.game_state = save_game_state
+                            game.change_character_position(charact, save_pos)
+                            self.score = local
+                            if (alpha < value):
+                                alpha = value
+                                if (depth == maxDepth):
+                                    self.saveChar = charact
+                                    self.savePos = position
+                                    self.power = False
+                                    if (i > 0):
+                                        self.power = True
+                                        self.saveValuePower = savePow
+                                    print("saving pos " + str(position) + "for char " + charact['color'] +  " power : " + str(self.power) + "\n")
+                                    print("value " + str(value) + "\n")
+                            if (beta <= alpha and depth != maxDepth):
+                                return (value)
             return value
         else:
             value = 1000000000
@@ -272,7 +363,11 @@ class Player():
         print("\n")
         print(question['question type'])
         if (question['question type'] == "select character"):
+            self.nbCalls = 0
+            seconds = time.time()
             self.alphabeta(data, len(data), True, -1000000000, 1000000000, len(data))
+            newTime = time.time() - seconds
+            print("\n\n--------------calls : " + str(self.nbCalls) + " time : " + str(newTime) + "------------------\n\n")
             response_index = data.index(self.saveChar)
         elif (question['question type'] == "select position"):
             if (self.savePos in data):
@@ -280,10 +375,18 @@ class Player():
             else:
                 response_index = random.randint(0, len(data)-1)
         elif (question['question type'] == "activate " + self.saveChar['color'] + " power"):
-            response_index = random.randint(0, 1)
+            if (self.saveChar['color'] == "red"):
+                response_index = 1
+            else:
+                response_index = 1 if self.power == True else 0
         else:
-            print("i don't know this question")
-            response_index = random.randint(0, len(data)-1)
+            print("saved values power : " + str(self.saveValuePower) + " --- data : " + str(data) + "\n\n")
+            if (self.saveValuePower[0] != None and self.saveValuePower[0] in data):
+                response_index = data.index(self.saveValuePower[0])
+            elif (self.saveValuePower[1] != None and self.saveValuePower[1] in data):
+                response_index = data.index(self.saveValuePower[1])
+            else:
+                response_index = random.randint(0, len(data)-1)
 
 
         print("response " + str(response_index) + "\n")
@@ -561,8 +664,6 @@ class Player():
 
             for q in moved_characters:
                 q.position = selected_position
-
-
 
 p = Player()
 
