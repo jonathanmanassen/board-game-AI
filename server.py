@@ -44,7 +44,7 @@ pink_passages = [{1, 4}, {0, 2, 5, 7}, {1, 3, 6}, {2, 7}, {0, 5, 8, 9}, {
     that are written to your logfiles.
 """
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.CRITICAL)
 formatter = logging.Formatter(
     "%(asctime)s :: %(levelname)s :: %(message)s", "%H:%M:%S")
 # logger to file
@@ -613,8 +613,33 @@ logger.info("received all clients")
 pr = cProfile.Profile()
 pr.enable()
 
-game = Game(players)
-game.lancer()
+
+f = open("./logs/wins.txt", 'w')
+f.write("0\n0")
+f.close()
+for i in range(1):
+    players = [Player(0), Player(1)]
+    scores = []
+    game = Game(players)
+    game.lancer()
+    f = open("./logs/wins.txt", 'r')
+
+    fantom = int(f.readline())
+    inspector = int(f.readline())
+
+    if (game.position_carlotta < game.exit):
+        inspector += 1
+        print("inspector wins")
+    else:
+        fantom += 1
+        print("fantom wins")
+
+    f.close()
+
+    f = open("./logs/wins.txt", 'w')
+
+    f.write(str(fantom) + "\n" + str(inspector))
+    f.close()
 
 link.close()
 
@@ -626,20 +651,3 @@ sys.stdout = stats_file
 pr.print_stats(sort='time')
 
 sys.stdout = sys.__stdout__
-
-f = open("./logs/wins.txt", 'r')
-
-fantom = int(f.readline())
-inspector = int(f.readline())
-
-if (game.position_carlotta < game.exit):
-    inspector += 1
-else:
-    fantom += 1
-
-f.close()
-
-f = open("./logs/wins.txt", 'w')
-
-print(str(inspector) + " " + str(fantom))
-f.write(str(fantom) + "\n" + str(inspector))
