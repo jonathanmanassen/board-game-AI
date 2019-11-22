@@ -288,8 +288,6 @@ class Player():
                                     self.saveValuePower = savePow
                                 else:
                                     self.power = False
-#                                print("saving pos " + str(position) + "for char " + charact['color'] + "\n")
-#                                print("value " + str(value) + "\n")
                         if (beta <= alpha):
                             return (value)
             return value
@@ -326,9 +324,6 @@ class Player():
         data = question["data"]
         game_state = question["game state"]
         game.set_game_state(question['game state'])
-        print("data " + str(data))
-        print("\n")
-        print(question['question type'])
         if (question['question type'] == "select character"):
             self.alphabeta(data, len(data), -1000000000, 1000000000, len(data))
             response_index = data.index(self.saveChar)
@@ -347,7 +342,6 @@ class Player():
             else:
                 response_index = 1 if self.power == True else 0
         else:
-            print("saved values power : " + str(self.saveValuePower) + " --- data : " + str(data) + "\n\n")
 
             if (self.saveValuePower == None):
                 response_index = random.randint(0, len(data)-1)
@@ -355,7 +349,6 @@ class Player():
                 if (len(self.saveValuePower) == 0):
                     response_index = random.randint(0, len(data)-1)
                 else:
-                    print(self.saveValuePower[0][1])
                     pos = self.saveValuePower.pop(0)[0]
                     if (pos in data):
                         response_index = data.index(pos)
@@ -370,7 +363,6 @@ class Player():
             else:
                 response_index = random.randint(0, len(data)-1)
 
-#        print("response " + str(response_index) + "\n")
         # log
         fantom_logger.debug("|\n|")
         fantom_logger.debug("fantom answers")
