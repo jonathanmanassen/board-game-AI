@@ -29,7 +29,7 @@ Du côté de l'inspecteur nous ne connaissons pas le fantôme, nous appliquons d
 
 ## Authors
 
-**Jonathan Manassen**
+**Jonathan Manassen**<br>
 **Christophe Mei**
 **Julien Meslin**
 **Gabin Meyrieux-Drevet**
