@@ -5,4 +5,5 @@ server_nz.py
 backup/*
 logs/*
 __pycache__/*
+.vs/*
 server_vs_jeu.txt

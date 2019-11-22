@@ -131,7 +131,6 @@ class Player():
             return 1
 
         if charact['color'] == "white":
-            return 0
             nb = 0
             for moved_character in game.game_state['characters']:
                 if moved_character['position'] == charact['position'] and charact != moved_character:
@@ -141,19 +140,19 @@ class Player():
 
                     available_positions = list(disp)
                     nb += len(available_positions)
+            if (nb > 10):
+                nb = 10
             return nb
 
         if charact['color'] == "purple":
             return 7
 
         if charact['color'] == "brown":
-            self.testBrown = []
             nb = 0
             for char in game.game_state['characters']:
                 if (char == charact):
                     continue
                 if (char['position'] == charact['position']):
-                    self.testBrown.append(char)
                     nb += 1
             return nb
 
@@ -176,7 +175,7 @@ class Player():
             positions = []
             saveForResetPower = []
             for moved_character in game.game_state['characters']:
-                if moved_character['position'] == save_pos and charact != moved_character:
+                if moved_character['position'] == charact['position'] and charact != moved_character:
                     disp = {
                         x for x in passages[charact['position']] if x not
                         in game.game_state['blocked'] or moved_character['position'] not in game.game_state['blocked']}
@@ -184,9 +183,9 @@ class Player():
                     available_positions = list(disp)
                     position = available_positions[random.randint(0, len(available_positions)-1)]
                     saveForResetPower.append([moved_character, moved_character['position']])
-                    moved_character['position'] = position
-                    positions.append(position)
-            return [saveForResetPower, [positions, None]]
+                    game.change_character_position(moved_character, position)
+                    positions.append([position, moved_character])
+            return [saveForResetPower, positions]
 
         if charact['color'] == "grey":
 
@@ -273,9 +272,8 @@ class Player():
                         sentData = data.copy()
                         sentData.remove(c)
                         nb = self.alphabeta(sentData, depth - 1, alpha, beta, maxDepth)
-                        if (depth == maxDepth and nb == -1000000000):
-                            print("WHAT THE DAMN HELL")
-                            exit(0)
+                        if (charact['color'] == "red"):
+                            nb += 1
                         if (value < nb):
                             value = nb
                         if (powerUseNb > 0):
@@ -312,6 +310,8 @@ class Player():
                         sentData = data.copy()
                         sentData.remove(c)
                         nb = self.alphabeta(sentData, depth - 1, alpha, beta, maxDepth)
+                        if (charact['color'] == "red"):
+                            nb -= 1
                         if (value > nb):
                             value = nb
                         if (powerUseNb > 0):
@@ -325,7 +325,6 @@ class Player():
 
 
     def answer(self, question):
-        # work
         data = question["data"]
         game_state = question["game state"]
         game.set_game_state(question['game state'])
@@ -335,31 +334,35 @@ class Player():
         if (question['question type'] == "select character"):
             self.alphabeta(data, len(data), -1000000000, 1000000000, len(data))
             response_index = data.index(self.saveChar)
+            self.prevQuestion = 0
         elif (question['question type'] == "select position"):
             if (self.savePos in data):
                 response_index = data.index(self.savePos)
             else:
                 response_index = random.randint(0, len(data)-1)
+            self.prevQuestion = 1
         elif (question['question type'] == "activate " + self.saveChar['color'] + " power"):
-            print("activating power of color : " + str(self.saveChar['color']))
-            if (self.saveChar['color'] == "red"):
+            if (self.saveChar['color'] == "blue" and self.prevQuestion == 0):
+                response_index = 0
+            elif (self.saveChar['color'] == "red"):
                 response_index = 1
             else:
                 response_index = 1 if self.power == True else 0
         else:
             print("saved values power : " + str(self.saveValuePower) + " --- data : " + str(data) + "\n\n")
 
-            if (self.saveChar['color'] == "white" and self.saveValuePower[0] != None):
+            if (self.saveValuePower == None):
                 response_index = random.randint(0, len(data)-1)
-#                if (len(self.saveValuePower[0]) == 0):
-#                    self.saveValuePower[0] = None
-#                    response_index = random.randint(0, len(data)-1)
-#                else:
-#                    pos = self.saveValuePower[0].pop(0)
-#                    if (pos in data):
-#                        response_index = data.index(pos)
-#                    else:
-#                        response_index = random.randint(0, len(data)-1)
+            elif (self.saveChar['color'] == "white"):
+                if (len(self.saveValuePower) == 0):
+                    response_index = random.randint(0, len(data)-1)
+                else:
+                    print(self.saveValuePower[0][1])
+                    pos = self.saveValuePower.pop(0)[0]
+                    if (pos in data):
+                        response_index = data.index(pos)
+                    else:
+                        response_index = random.randint(0, len(data)-1)
             elif (self.saveValuePower[0] != None and self.saveValuePower[0] in data):
                 response_index = data.index(self.saveValuePower[0])
                 self.saveValuePower[0] = None
@@ -368,8 +371,6 @@ class Player():
                 self.saveValuePower[1] = None
             else:
                 response_index = random.randint(0, len(data)-1)
-
-
 
         print("response " + str(response_index) + "\n")
         # log
