@@ -59,8 +59,8 @@ class Game:
             "blocked": game_state['blocked'],
             "characters": game_state['characters'],
             "active tiles": game_state['active tiles'],
+            "fantom" : game_state['fantom'],
         }
-        self.game_state["fantom"] = game_state['fantom']
         self.fantom = next(x for x in self.game_state['characters'] if x['color'] == game_state['fantom'])
 
         self.x = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -73,7 +73,7 @@ class Game:
         for char in self.game_state['characters']:
             self.x[char['position']] += 1
 
-        self.heuriticScores = [0] * 10
+        self.movedRed = 0
 
         return self.game_state
 
@@ -97,7 +97,7 @@ class Game:
             if ((self.x[char['position']] == 1 or char['position'] == self.game_state['shadow']) and reveal == False):
                 number_revealed_suspects += 1
 
-        score = (self.nbSuspects - number_revealed_suspects) * 2 + (1 if reveal == True else 0)
+        score = (self.nbSuspects - number_revealed_suspects) * 2 + (1 if reveal == True else 0) + game.movedRed * 1.5
         return score
 
 class Player():
@@ -120,7 +120,7 @@ class Player():
     def reset(self):
         self.socket.close()
         
-    def powerLoopNb(self, charact, i):
+    def powerLoopNb(self, charact):
         if (charact['color'] == "pink"):
             return 0
         if charact['color'] == "red":
@@ -161,7 +161,7 @@ class Player():
         if charact['color'] == "blue":
             return 11
 
-    def activate_power(self, charact, i, save_pos, data):
+    def activate_power(self, charact, i, save_pos):
         if charact['color'] == "black":
             saveForResetPower = []
             for q in game.game_state['characters']:
@@ -261,20 +261,18 @@ class Player():
             value = -1000000000
             for c in data:
                 charact = next(x for x in game.game_state['characters'] if x['color'] == c['color'])
-                testIdx = -1
                 save_pos = charact['position']
                 for position in self.getDestinations(charact):
-                    testIdx += 1
-                    for powerUseNb in range(0, self.powerLoopNb(charact, testIdx) + 1):
+                    for powerUseNb in range(0, self.powerLoopNb(charact) + 1):
                         game.change_character_position(charact, position)
                         if (powerUseNb > 0):
-                            [saveForResetPower, savePow] = self.activate_power(charact, powerUseNb - 1, save_pos, data)
+                            [saveForResetPower, savePow] = self.activate_power(charact, powerUseNb - 1, save_pos)
 
                         sentData = data.copy()
                         sentData.remove(c)
-                        nb = self.alphabeta(sentData, depth - 1, alpha, beta, maxDepth)
                         if (charact['color'] == "red"):
-                            nb += 1
+                            game.movedRed = 1
+                        nb = self.alphabeta(sentData, depth - 1, alpha, beta, maxDepth)
                         if (value < nb):
                             value = nb
                         if (powerUseNb > 0):
@@ -299,20 +297,18 @@ class Player():
             value = 1000000000
             for c in data:
                 charact = next(x for x in game.game_state['characters'] if x['color'] == c['color'])
-                testIdx = -1
                 save_pos = charact['position']
                 for position in self.getDestinations(charact):
-                    testIdx += 1
-                    for powerUseNb in range(0, self.powerLoopNb(charact, testIdx) + 1):
+                    for powerUseNb in range(0, self.powerLoopNb(charact) + 1):
                         game.change_character_position(charact, position)
                         if (powerUseNb > 0):
-                            [saveForResetPower, savePow] = self.activate_power(charact, powerUseNb - 1, save_pos, data)
+                            [saveForResetPower, savePow] = self.activate_power(charact, powerUseNb - 1, save_pos)
 
                         sentData = data.copy()
                         sentData.remove(c)
-                        nb = self.alphabeta(sentData, depth - 1, alpha, beta, maxDepth)
                         if (charact['color'] == "red"):
-                            nb -= 1
+                            game.movedRed = -1
+                        nb = self.alphabeta(sentData, depth - 1, alpha, beta, maxDepth)
                         if (value > nb):
                             value = nb
                         if (powerUseNb > 0):
