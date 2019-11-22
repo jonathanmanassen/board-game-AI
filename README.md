@@ -5,7 +5,8 @@ Ce projet est un projet python ou deux IAs (fantom et inspector) s'affrontent su
 ## Implémentation
 
 Les deux IAs ont été codés avec un minmax, une technique choisi de part le fait que nous n'avons pas accès à tous les moves possibles jusqu'à la fin de la partie.<br>
-En effet le serveur mélange les 8 cartes correspondant au personnages et l'on a à un instant présent que une à quatre cartes à disposition pour jouer, nous pourrions déduire les 4 autres cartes utilisées ensuite mais au dela de ça, il y a un mélange effectué par le serveur. De ce fait le minmax paraissait adapté car il était possible en un temps adapté (environ 1 seconde pour jouer une partie complète) de traverser un arbre contenant toutes les issues possibles à un moment donné en allant à une profondeur égale aux nombre de cartes activement donné par le serveur.
+En effet le serveur mélange les 8 cartes correspondant au personnages et l'on a à un instant présent que une à quatre cartes à disposition pour jouer, nous pourrions déduire les 4 autres cartes utilisées ensuite mais au dela de ça, il y a un mélange effectué par le serveur. <br>
+De ce fait le minmax paraissait adapté car il était possible en un temps adapté (environ 1 seconde pour jouer une partie complète) de traverser un arbre contenant toutes les issues possibles à un moment donné en allant à une profondeur égale aux nombre de cartes activement donné par le serveur.
 La taille de cet arbre était donc :<br>
 n * nbPotentielDéplacements * (nbPotentielPouvoirs + 1) + ... + 1 * nbPotentielDéplacements * (nbPotentielPouvoirs + 1) avec 1 <= n <= 4.
 
