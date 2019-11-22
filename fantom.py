@@ -49,72 +49,7 @@ stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.WARNING)
 fantom_logger.addHandler(stream_handler)
 
-
-
-class Character:
-    """
-        Class representing the eight possible characters of the game.
-    """
-
-    def __init__(self, color):
-        self.color, self.suspect, self.position, self.power = color, True, 0, True
-
-    def __repr__(self):
-        if self.suspect:
-            susp = "-suspect"
-        else:
-            susp = "-clean"
-        return self.color + "-" + str(self.position) + susp
-
-    def display(self):
-        return {
-            "color": self.color,
-            "suspect": self.suspect,
-            "position": self.position,
-            "power": self.power
-        }
-
-
 class Game:
-    
-    heuristicTime = 0
-
-    def lumiere(self):
-        partition = [{p for p in self.characters if p.position == i}
-                     for i in range(10)]
-        if len(partition[self.fantom.position]) == 1 or self.fantom.position == self.shadow:
-            self.position_carlotta += 1
-            for piece, gens in enumerate(partition):
-                if len(gens) > 1 and piece != self.shadow:
-                    for p in gens:
-                        p.suspect = False
-        else:
-            for piece, gens in enumerate(partition):
-                if len(gens) == 1 or piece == self.shadow:
-                    for p in gens:
-                        p.suspect = False
-        self.position_carlotta += len(
-            [p for p in self.characters if p.suspect])
-
-    def tour(self):
-
-        # work
-        self.actions()
-        self.lumiere()
-        for p in self.characters:
-            p.power = True
-        self.num_tour += 1
-
-    def lancer(self):
-        """
-            Run a game until either the fantom is discovered,
-            or the singer leaves the opera.
-        """
-        # work
-        while self.position_carlotta < self.exit and len([p for p in self.characters if p.suspect]) > 1:
-            self.tour()
-        # game ends
-        return self.exit - self.position_carlotta
 
     def __repr__(self):
         message = f"Tour: {self.num_tour},\n"
@@ -123,30 +58,6 @@ class Game:
         message += f"blocked: {self.blocked}"
         message += "".join(["\n"+str(p) for p in self.characters])
         return message
-
-    def update_game_state(self, player_role):
-        """
-            representation of the global state of the game.
-        """
-        self.characters_display = [character.display() for character in
-                                   self.characters]
-        self.tiles_display = [tile.display() for tile in
-                              self.tiles]
-        self.active_tiles_display = [tile.display() for tile in
-                                     self.active_tiles]
-        # update
-
-        self.game_state = {
-            "position_carlotta": self.position_carlotta,
-            "exit": self.exit,
-            "num_tour": self.num_tour,
-            "shadow": self.shadow,
-            "blocked": self.blocked_list,
-            "characters": self.characters_display,
-            "active tiles": self.active_tiles_display,
-        }
-        
-        return self.game_state
 
     def set_game_state(self, game_state):
         
@@ -160,51 +71,52 @@ class Game:
             "active tiles": game_state['active tiles'],
         }
         self.game_state["fantom"] = game_state['fantom']
+        self.fantom = next(x for x in self.game_state['characters'] if x['color'] == game_state['fantom'])
+
+        self.x = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.nbSuspects = 0
+        for char in self.game_state['characters']:
+            if (char['suspect'] == True):
+                self.nbSuspects += 1
+
+
+        for char in self.game_state['characters']:
+            self.x[char['position']] += 1
+
+        self.heuriticScores = [0] * 10
 
         return self.game_state
 
     def change_character_position(self, character, position):
+        self.x[character['position']] -= 1
+        self.x[position] += 1
         next(x for x in self.game_state['characters'] if x['color'] == character['color'])['position'] = position
+        character['position'] = position
 
     def heuristic(self):
-        seconds = time.time()
-        x = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-
-        for char in self.game_state['characters']:
-            x[char['position']] += 1
-        fantom = next(x for x in self.game_state['characters'] if x['color'] == self.game_state['fantom'])
         reveal = True
-        if (x[fantom['position']] > 1 and fantom['position'] != self.game_state['shadow']):
+        if (self.x[self.fantom['position']] > 1 and self.fantom['position'] != self.game_state['shadow']):
             reveal = False
-
 
         number_revealed_suspects = 0
         for char in self.game_state['characters']:
-            if (char == fantom or char['suspect'] == False):
+            if (char == self.fantom or char['suspect'] == False):
                 continue
-            if (x[char['position']] > 1 and char['position'] != self.game_state['shadow'] and reveal == True):
+            if (self.x[char['position']] > 1 and char['position'] != self.game_state['shadow'] and reveal == True):
                 number_revealed_suspects += 1
-            if ((x[char['position']] == 1 or char['position'] == self.game_state['shadow']) and reveal == False):
+            if ((self.x[char['position']] == 1 or char['position'] == self.game_state['shadow']) and reveal == False):
                 number_revealed_suspects += 1
 
-        number_revealed_suspects *= -100
-
-        if (reveal == True):
-            number_revealed_suspects += 50
-
-        self.heuristicTime += time.time() - seconds
-        return number_revealed_suspects
+        score = (self.nbSuspects - number_revealed_suspects) * 2 + (1 if reveal == True else 0)
+        return score
 
 class Player():
 
-    score = 0
     saveChar = None
     savePos = None
     data = None
     power = False
     saveValuePower = [None, None]
-    nbCalls = 0
-    testTime = 0
 
     def __init__(self):
 
@@ -217,19 +129,18 @@ class Player():
 
     def reset(self):
         self.socket.close()
-
-    def powerLoopNb(self, charact, after):
+        
+    def powerLoopNb(self, charact, i):
         if (charact['color'] == "pink"):
             return 0
         if charact['color'] == "red":
             return 0
 
         if charact['color'] == "black":
-            return 1 if after is True else 0
+            return 1
 
         if charact['color'] == "white":
-            if (after is False):
-                return 0
+            return 0
             nb = 0
             for moved_character in game.game_state['characters']:
                 if moved_character['position'] == charact['position'] and charact != moved_character:
@@ -239,44 +150,42 @@ class Player():
 
                     available_positions = list(disp)
                     nb += len(available_positions)
-            if (nb > 5):
-                nb = 5
             return nb
 
         if charact['color'] == "purple":
-            return 0 if after is True else 3#7
+            return 7
 
         if charact['color'] == "brown":
-            if (after == True):
-                return 0
+            self.testBrown = []
             nb = 0
             for char in game.game_state['characters']:
                 if (char == charact):
                     continue
                 if (char['position'] == charact['position']):
+                    self.testBrown.append(char)
                     nb += 1
             return nb
 
         if charact['color'] == "grey":
-            return 3 if after is True else 0
+            return 10
 
         if charact['color'] == "blue":
-            return 3 if after is True else 0
+            return 11
 
-    def activate_power(self, charact, i):
+    def activate_power(self, charact, i, save_pos, data):
         if charact['color'] == "black":
             saveForResetPower = []
             for q in game.game_state['characters']:
                 if q['position'] in {x for x in passages[charact['position']] if x not in game.game_state['blocked'] or q['position'] not in game.game_state['blocked']}:
                     saveForResetPower.append([q, q['position']])
-                    q['position'] = charact['position']
+                    game.change_character_position(q, charact['position'])
             return [saveForResetPower, [None, None]]
 
         if charact['color'] == "white":
             positions = []
             saveForResetPower = []
             for moved_character in game.game_state['characters']:
-                if moved_character['position'] == charact['position'] and charact != moved_character:
+                if moved_character['position'] == save_pos and charact != moved_character:
                     disp = {
                         x for x in passages[charact['position']] if x not
                         in game.game_state['blocked'] or moved_character['position'] not in game.game_state['blocked']}
@@ -314,9 +223,10 @@ class Player():
             for char in game.game_state['characters']:
                 if (char == charact):
                     continue
-                if (char['position'] == charact['position']):
+                if (char['position'] == save_pos):
                     if (nb == i):
                         saveForResetPower = [char, char['position']]
+                        game.change_character_position(char, save_pos)
                         return [saveForResetPower, [char, None]]
                     nb += 1
         if charact['color'] == "purple":
@@ -325,16 +235,16 @@ class Player():
                 if (i == nb):
                     saveForResetPower = [char, char['position']]
                     game.change_character_position(charact, char['position'])
-                    charact['power'] = False
+                    game.change_character_position(char, save_pos)
                     return [saveForResetPower, [char, None]]
                 nb += 1
 
+        return [None, [None, None]]
+
     def resetAfterPower(self, charact, saveForResetPower):
         if charact['color'] == "black" or charact['color'] == "white":
-            for tp in saveForResetPower:
-                for char in game.game_state['characters']:
-                    if (char == tp[0]):
-                        char['position'] = tp[1]
+            for char in saveForResetPower:
+                game.change_character_position(char[0], char[1])
 
         elif charact['color'] == "grey":
             game.game_state['shadow'] = saveForResetPower
@@ -343,100 +253,80 @@ class Player():
             game.game_state['blocked'] = saveForResetPower
 
         elif charact['color'] == "brown" or charact['color'] == "purple":
-            for char in game.game_state['characters']:
-                if (char == saveForResetPower[0]):
-                    char['position'] = saveForResetPower[1]
+            charact['power'] = True
+            game.change_character_position(saveForResetPower[0], saveForResetPower[1])
         saveForResetPower = None
 
-    def alphabeta(self, data, depth, player, alpha, beta, maxDepth):
+    def getDestinations(self, charact):
+        pass_act = pink_passages if charact['color'] == 'pink' else passages
+        disp = {x for x in pass_act[charact['position']]
+                if charact['position'] not in game.game_state['blocked'] or x not in game.game_state['blocked']}
+        return list(disp)
 
-        self.nbCalls += 1
+    def alphabeta(self, data, depth, alpha, beta, maxDepth):
         if (depth == 0):
-            return self.score
-        if (player):
+            return game.heuristic()
+        if (((maxDepth == 4 or maxDepth == 1) and (depth == 4 or depth == 1)) or ((maxDepth == 3 or maxDepth == 2) and (depth == 3 or depth == 2))):
             value = -1000000000
-            for charact in data:
-                if (charact not in game.game_state['characters']):
-                    continue
-                for pib in range(0, self.powerLoopNb(charact, False) + 1):
-                    if (pib > 0):
-                        [saveForResetPower, savePow] = self.activate_power(charact, pib - 1)
-                    save_pos = charact['position']
-                    pass_act = pink_passages if charact['color'] == 'pink' else passages
-                    if charact['color'] != 'purple' or charact['power']:
-                        disp = {x for x in pass_act[charact['position']]
-                                if charact['position'] not in game.game_state['blocked'] or x not in game.game_state['blocked']}
-                    else:
-                        disp = { charact['position'] }
-                    for position in list(disp):
+            for c in data:
+                charact = next(x for x in game.game_state['characters'] if x['color'] == c['color'])
+                testIdx = -1
+                save_pos = charact['position']
+                for position in self.getDestinations(charact):
+                    testIdx += 1
+                    for powerUseNb in range(0, self.powerLoopNb(charact, testIdx) + 1):
                         game.change_character_position(charact, position)
-                        if (pib > 0 and charact['color'] == "brown" and savePow != None and savePow[0] != None):
-                            game.change_character_position(savePow[0], position)
-                        for i in range(0, self.powerLoopNb(charact, True) + 1):
-                            if (i > 0):
-                                sec = time.time()
-                                [saveForResetPower, savePow] = self.activate_power(charact, i - 1)
-                                self.testTime += time.time() - sec
-                            local = self.score
-                            self.score = game.heuristic()
-                            if (depth == maxDepth):
-                                beta = 1000000000
+                        if (powerUseNb > 0):
+                            [saveForResetPower, savePow] = self.activate_power(charact, powerUseNb - 1, save_pos, data)
 
-                            nb = self.alphabeta(data, depth - 1, player, alpha, beta, maxDepth)
-                            if (value < nb):
-                                value = nb
-                            if (i > 0):
-                                self.resetAfterPower(charact, saveForResetPower)
-                            game.change_character_position(charact, save_pos)
-                            self.score = local
-                            if (alpha < value):
-                                alpha = value
-                                if (depth == maxDepth):
-                                    self.saveChar = charact
-                                    self.savePos = position
+                        sentData = data.copy()
+                        sentData.remove(c)
+                        nb = self.alphabeta(sentData, depth - 1, alpha, beta, maxDepth)
+                        if (value < nb):
+                            value = nb
+                        if (powerUseNb > 0):
+                            self.resetAfterPower(charact, saveForResetPower)
+                        game.change_character_position(charact, save_pos)
+                        if (alpha < value):
+                            alpha = value
+                            if (depth == maxDepth):
+                                self.saveChar = charact
+                                self.savePos = position
+                                if (powerUseNb > 0):
+                                    self.power = True
+                                    self.saveValuePower = savePow
+                                else:
                                     self.power = False
-                                    if (i > 0 or pib > 0):
-                                        self.power = True
-                                        self.saveValuePower = savePow
-                                    print("saving pos " + str(position) + "for char " + charact['color'] +  " power : " + str(self.power) + "\n")
-                                    print("value " + str(value) + "\n")
-                            if (beta <= alpha and depth != maxDepth):
-                                return (value)
-                    if (pib > 0):
-                        self.resetAfterPower(charact, saveForResetPower)
+                                print("saving pos " + str(position) + "for char " + charact['color'] + "\n")
+                                print("value " + str(value) + "\n")
+                        if (beta <= alpha):
+                            return (value)
             return value
         else:
             value = 1000000000
-            i = 0
-            for charact in data:
+            for c in data:
+                charact = next(x for x in game.game_state['characters'] if x['color'] == c['color'])
+                testIdx = -1
                 save_pos = charact['position']
-                pass_act = pink_passages if charact['color'] == 'pink' else passages
-                if charact['color'] != 'purple' or charact['power']:
-                    disp = {x for x in pass_act[charact['position']]
-                            if charact['position'] not in game.game_state['blocked'] or x not in game.game_state['blocked']}
-                    for position in list(disp):
+                for position in self.getDestinations(charact):
+                    testIdx += 1
+                    for powerUseNb in range(0, self.powerLoopNb(charact, testIdx) + 1):
                         game.change_character_position(charact, position)
-                        for i in range(0, self.powerLoopNb(charact) + 1):
-                            save_game_state = game.game_state.copy()
-                            if (i > 0):
-                                sec = time.time()
-                                savePow = self.activate_power_after_move(charact, i - 1)
-                                self.testTime += time.time() - sec
+                        if (powerUseNb > 0):
+                            [saveForResetPower, savePow] = self.activate_power(charact, powerUseNb - 1, save_pos, data)
 
-                            local = self.score
-                            self.score = game.heuristic()
-
-                            nb = self.alphabeta(data, depth - 1, player, alpha, beta, maxDepth)
-                            if (value > nb):
-                                value = nb
-                            game.game_state = save_game_state
-                            game.change_character_position(charact, save_pos)
-                            self.score = local
-                            if (beta > value):
-                                beta = value
-                            if (beta <= alpha):
-                                return (value)
-                i = i + 1
+                        sentData = data.copy()
+                        sentData.remove(c)
+                        nb = self.alphabeta(sentData, depth - 1, alpha, beta, maxDepth)
+                        if (value > nb):
+                            value = nb
+                        if (powerUseNb > 0):
+                            self.resetAfterPower(charact, saveForResetPower)
+                        game.change_character_position(charact, save_pos)
+                        if (beta > value):
+                            beta = value
+                        if (beta <= alpha):
+                            return (value)
             return value
 
 
@@ -445,18 +335,11 @@ class Player():
         data = question["data"]
         game_state = question["game state"]
         game.set_game_state(question['game state'])
-
         print("data " + str(data))
         print("\n")
         print(question['question type'])
         if (question['question type'] == "select character"):
-            self.nbCalls = 0
-            game.heuristicTime = 0
-            self.testTime = 0
-            seconds = time.time()
-            self.alphabeta(data, len(data), True, -1000000000, 1000000000, len(data))
-            newTime = time.time() - seconds
-            print("\n\n--------------calls : " + str(self.nbCalls) + " time : " + str(newTime) + " heuristicTime : " + str(game.heuristicTime) + " testTime : " + str(self.testTime) + "------------------\n\n")
+            self.alphabeta(data, len(data), -1000000000, 1000000000, len(data))
             response_index = data.index(self.saveChar)
         elif (question['question type'] == "select position"):
             if (self.savePos in data):
@@ -464,6 +347,7 @@ class Player():
             else:
                 response_index = random.randint(0, len(data)-1)
         elif (question['question type'] == "activate " + self.saveChar['color'] + " power"):
+            print("activating power of color : " + str(self.saveChar['color']))
             if (self.saveChar['color'] == "red"):
                 response_index = 1
             else:
@@ -472,16 +356,16 @@ class Player():
             print("saved values power : " + str(self.saveValuePower) + " --- data : " + str(data) + "\n\n")
 
             if (self.saveChar['color'] == "white" and self.saveValuePower[0] != None):
-                if (len(self.saveValuePower[0]) == 0):
-                    self.saveValuePower[0] = None
-                else:
-                    pos = self.saveValuePower[0].pop(0)
-                    if (pos in data):
-                        response_index = data.index(pos)
-                    else:
-                        response_index = random.randint(0, len(data)-1)
-                    if (len(self.saveValuePower[0]) == 0):
-                        self.saveValuePower[0] = None
+                response_index = random.randint(0, len(data)-1)
+#                if (len(self.saveValuePower[0]) == 0):
+#                    self.saveValuePower[0] = None
+#                    response_index = random.randint(0, len(data)-1)
+#                else:
+#                    pos = self.saveValuePower[0].pop(0)
+#                    if (pos in data):
+#                        response_index = data.index(pos)
+#                    else:
+#                        response_index = random.randint(0, len(data)-1)
             elif (self.saveValuePower[0] != None and self.saveValuePower[0] in data):
                 response_index = data.index(self.saveValuePower[0])
                 self.saveValuePower[0] = None
@@ -490,7 +374,6 @@ class Player():
                 self.saveValuePower[1] = None
             else:
                 response_index = random.randint(0, len(data)-1)
-
 
         print("response " + str(response_index) + "\n")
         # log
@@ -521,80 +404,7 @@ class Player():
                 print("no message, finished learning")
                 self.end = True
 
-    def play(self, game):
 
-        charact = self.select(game.active_tiles,
-                                game.update_game_state(1))
-
-        moved_characters = self.activate_power(charact,
-                                                game,
-                                                before | two,
-                                                game.update_game_state(1))
-
-        self.move(charact,
-                    moved_characters,
-                    game.blocked,
-                    game.update_game_state(1))
-
-        self.activate_power(charact,
-                            game,
-                            after | two,
-                            game.update_game_state(1))
-
-    def select(self, t, game_state):
-        """
-            Choose the character to activate whithin
-            the given choices.
-        """
-        available_characters = [character.display() for character in t]
-        question = {"question type": "select character",
-                    "data": available_characters,
-                    "game state": game_state}
-        selected_character = ask_question_json(self, question)
-
-        # test
-        # range(len(t)) goes until len(t)-1
-        if selected_character not in range(len(t)):
-            warning_message = (
-                ' !  : selected character not in '
-                'available characters. Choosing random character.'
-            )
-            selected_character = random.randint(0, len(t)-1)
-
-        perso = t[selected_character]
-
-
-        del t[selected_character]
-        return perso
-
-    def move(self, charact, moved_characters, blocked, game_state):
-        """
-            Select a new position for the character.
-        """
-        pass_act = pink_passages if charact.color == 'pink' else passages
-        if charact.color != 'purple' or charact.power:
-            disp = {x for x in pass_act[charact.position]
-                    if charact.position not in blocked or x not in blocked}
-
-            available_positions = list(disp)
-            question = {"question type": "select position",
-                        "data": available_positions,
-                        "game state": game_state}
-            selected_index = ask_question_json(self, question)
-
-            # test
-            if selected_index not in range(len(disp)):
-                warning_message = (
-                    ' !  : selected position not available '
-                    'Choosing random position.'
-                )
-                selected_position = disp.pop()
-
-            else:
-                selected_position = available_positions[selected_index]
-
-            for q in moved_characters:
-                q.position = selected_position
 
 p = Player()
 

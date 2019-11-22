@@ -617,15 +617,15 @@ pr.enable()
 f = open("./logs/wins.txt", 'w')
 f.write("0\n0")
 f.close()
-for i in range(1):
+for i in range(100):
     players = [Player(0), Player(1)]
     scores = []
     game = Game(players)
     game.lancer()
     f = open("./logs/wins.txt", 'r')
 
-    fantom = int(f.readline())
-    inspector = int(f.readline())
+    fantom = int(''.join(x for x in f.readline() if x.isdigit()))
+    inspector = int(''.join(x for x in f.readline() if x.isdigit()))
 
     if (game.position_carlotta < game.exit):
         inspector += 1
@@ -638,7 +638,7 @@ for i in range(1):
 
     f = open("./logs/wins.txt", 'w')
 
-    f.write(str(fantom) + "\n" + str(inspector))
+    f.write("fantom : " + str(fantom) + "\n" + "inspector : " + str(inspector))
     f.close()
 
 link.close()
