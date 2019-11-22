@@ -6,8 +6,6 @@ import json
 import protocol
 from random import randrange
 import random
-import time
-import copy
 
 host = "localhost"
 port = 12000
@@ -50,14 +48,6 @@ stream_handler.setLevel(logging.WARNING)
 fantom_logger.addHandler(stream_handler)
 
 class Game:
-
-    def __repr__(self):
-        message = f"Tour: {self.num_tour},\n"
-        message += f"Position Carlotta / exit: {self.position_carlotta}/{self.exit},\n"
-        message += f"Shadow: {self.shadow},\n"
-        message += f"blocked: {self.blocked}"
-        message += "".join(["\n"+str(p) for p in self.characters])
-        return message
 
     def set_game_state(self, game_state):
         
@@ -231,11 +221,13 @@ class Player():
         if charact['color'] == "purple":
             nb = 0
             for char in game.game_state['characters']:
+                if (char == charact):
+                    continue
                 if (i == nb):
                     saveForResetPower = [char, char['position']]
                     game.change_character_position(charact, char['position'])
                     game.change_character_position(char, save_pos)
-                    return [saveForResetPower, [char, None]]
+                    return [saveForResetPower, [char['color'], None]]
                 nb += 1
 
         return [None, [None, None]]

@@ -222,11 +222,13 @@ class Player():
         if charact['color'] == "purple":
             nb = 0
             for char in game.game_state['characters']:
+                if (char == charact):
+                    continue
                 if (i == nb):
                     saveForResetPower = [char, char['position']]
                     game.change_character_position(charact, char['position'])
                     game.change_character_position(char, save_pos)
-                    return [saveForResetPower, [char, None]]
+                    return [saveForResetPower, [char['color'], None]]
                 nb += 1
 
         return [None, [None, None]]
