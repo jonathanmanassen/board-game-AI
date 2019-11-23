@@ -2,6 +2,11 @@
 
 Ce projet est un projet python ou deux IAs (fantom et inspector) s'affrontent sur le jeu de plateau "phantom at the opera". Les deus IAs sont codés en python dans leurs fichiers respectifs.
 
+## Prérequis
+
+Le jeu a été basé sur le serveur créé a l'addresse suivante : https://github.com/nlehir/phantom_opera
+Le serveur a été repris et légèrement modifié pour pouvoir executer plusieurs parties d'affilé (100) et noter le nombre de victoire de l'inspecteur et du fantôme dans le fichier logs/wins
+
 ## Implémentation
 
 Les deux IAs ont été codés avec un minmax, une technique choisi de part le fait que nous n'avons pas accès à tous les moves possibles jusqu'à la fin de la partie.<br>
